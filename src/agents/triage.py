@@ -128,23 +128,22 @@ def _detect_language(sample_text: str) -> tuple[str, float]:
         return "unknown", 0.0
 
 
-def _domain_hint(sample_text: str) -> DomainHint:
+def _domain_hint(sample_text: str, rules: dict) -> DomainHint:
+    """Infer high-level domain from keywords externalized in the YAML rules."""
     t = (sample_text or "").lower()
-    financial = ["balance sheet", "income statement", "cash flow", "revenue", "profit", "asset", "liability"]
-    legal = ["hereby", "whereas", "pursuant", "herein", "affidavit", "audit report", "independent auditor"]
-    technical = ["methodology", "assessment", "implementation", "evaluation", "results", "framework", "appendix"]
-    medical = ["patient", "diagnosis", "clinical", "hospital", "treatment", "mg", "dosage"]
+    cfg = (rules.get("triage") or {}).get("domain_hints") or {}
 
-    def has_any(kw: list[str]) -> bool:
-        return any(k in t for k in kw)
+    def has_any(label: str) -> bool:
+        keywords = cfg.get(label) or []
+        return any(k.lower() in t for k in keywords)
 
-    if has_any(financial):
+    if has_any("financial"):
         return DomainHint.financial
-    if has_any(legal):
+    if has_any("legal"):
         return DomainHint.legal
-    if has_any(medical):
+    if has_any("medical"):
         return DomainHint.medical
-    if has_any(technical):
+    if has_any("technical"):
         return DomainHint.technical
     return DomainHint.general
 
@@ -204,7 +203,7 @@ def classify_profile(pdf_path: str | Path, config: RefineryConfig) -> DocumentPr
 
     has_forms = _has_form_fields(pdf_path)
     lang, lang_conf = _detect_language(sample_text)
-    domain = _domain_hint(sample_text)
+    domain = _domain_hint(sample_text, rules)
 
     # Origin classification.
     od = rules["triage"]["origin_detection"]

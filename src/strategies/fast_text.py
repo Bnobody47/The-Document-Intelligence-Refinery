@@ -17,7 +17,8 @@ def _safe_div(num: float, den: float) -> float:
     return 0.0 if den <= 0 else num / den
 
 
-def _page_fasttext_confidence(page: pdfplumber.page.Page) -> float:
+def _page_fasttext_confidence(page: pdfplumber.page.Page, rules: dict) -> float:
+    """Multi-signal confidence for Strategy A: chars, density, images, and fonts."""
     page_area = float(page.width * page.height)
     chars = len(page.chars or [])
     char_density = _safe_div(chars, page_area)
@@ -31,12 +32,31 @@ def _page_fasttext_confidence(page: pdfplumber.page.Page) -> float:
             continue
     image_ratio = max(0.0, min(1.0, _safe_div(img_area, page_area)))
 
-    # Simple bounded scoring.
+    # Font/metadata signal: more distinct fonts usually means a richer digital text stream.
+    chars_seq = page.chars or []
+    font_names = {str(c.get("fontname", "")).strip() for c in chars_seq if c.get("fontname")}
+    distinct_fonts = len(font_names)
+
+    conf_cfg = (rules.get("extraction") or {}).get("confidence") or {}
+    weights = (conf_cfg.get("fast_text_weights") or {}) or {
+        "chars": 0.4,
+        "density": 0.25,
+        "image": 0.2,
+        "fonts": 0.15,
+    }
+
+    # Simple bounded component scores.
     chars_score = min(1.0, chars / 800.0)
     density_score = min(1.0, char_density / 0.0012)
     image_score = 1.0 - min(1.0, image_ratio / 0.65)
+    fonts_score = min(1.0, distinct_fonts / 6.0)
 
-    score = 0.50 * chars_score + 0.30 * density_score + 0.20 * image_score
+    score = (
+        float(weights.get("chars", 0.4)) * chars_score
+        + float(weights.get("density", 0.25)) * density_score
+        + float(weights.get("image", 0.2)) * image_score
+        + float(weights.get("fonts", 0.15)) * fonts_score
+    )
     return float(max(0.0, min(1.0, score)))
 
 
@@ -48,9 +68,10 @@ class FastTextExtractor(BaseExtractor):
         reading_order: list[tuple[int, int]] = []
         page_scores: list[float] = []
 
+        rules = config.rules
         with pdfplumber.open(profile.source_path) as pdf:
             for i, page in enumerate(pdf.pages, start=1):
-                page_scores.append(_page_fasttext_confidence(page))
+                page_scores.append(_page_fasttext_confidence(page, rules))
                 try:
                     text = page.extract_text() or ""
                 except Exception:

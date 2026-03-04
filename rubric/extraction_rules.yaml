@@ -1,38 +1,93 @@
  version: "0.1"
  
- triage:
-   origin_detection:
-     # Heuristics over pdfplumber signals.
-     scanned_char_density_max: 0.00008
-     scanned_char_count_max: 50
-     scanned_image_area_ratio_min: 0.55
- 
-   layout_detection:
-     multi_column_min_separation_pts: 110
-     multi_column_min_modes: 2
-     table_heavy_min_tables_per_10_pages: 4
- 
- extraction:
-   router_defaults:
-     # 'auto' chooses based on DocumentProfile + confidence gate.
-     strategy: "auto"  # one of: auto, fast_text, layout, vision
- 
-   confidence:
-     min_doc_confidence_fast_text: 0.65
-     min_page_confidence_fast_text: 0.55
-     min_mean_chars_per_page: 120
-     max_image_area_ratio_for_fast_text: 0.5
- 
-   budget_guard:
-     # Hard cap for Vision strategy cost estimation (USD).
-     max_usd_per_document: 1.50
- 
- chunking:
-   # Interim placeholder; enforced in Phase 3.
-   max_tokens: 900
-   rules:
-     - "Table cell is never split from header row."
-     - "Figure caption stored as metadata of parent figure chunk."
-     - "Numbered list kept as single LDU unless exceeds max_tokens."
-     - "Section headers stored as parent metadata on child chunks."
-     - "Cross-references resolved into chunk relationships."
+triage:
+  origin_detection:
+    # Heuristics over pdfplumber signals to decide digital vs scanned/mixed.
+    scanned_char_density_max: 0.00008
+    scanned_char_count_max: 50
+    scanned_image_area_ratio_min: 0.55
+
+  layout_detection:
+    multi_column_min_separation_pts: 110
+    multi_column_min_modes: 2
+    table_heavy_min_tables_per_10_pages: 4
+
+  domain_hints:
+    # Keyword lists used by the triage agent to infer domain_hint.
+    financial:
+      - "balance sheet"
+      - "income statement"
+      - "cash flow"
+      - "revenue"
+      - "profit"
+      - "asset"
+      - "liability"
+      - "equity"
+      - "net interest income"
+    legal:
+      - "hereby"
+      - "whereas"
+      - "pursuant"
+      - "herein"
+      - "affidavit"
+      - "independent auditor"
+      - "audit report"
+      - "opinion"
+    technical:
+      - "methodology"
+      - "assessment"
+      - "implementation"
+      - "evaluation"
+      - "results"
+      - "framework"
+      - "appendix"
+      - "survey"
+    medical:
+      - "patient"
+      - "diagnosis"
+      - "clinical"
+      - "hospital"
+      - "treatment"
+      - "mg"
+      - "dosage"
+
+extraction:
+  router_defaults:
+    # 'auto' chooses based on DocumentProfile + confidence gate.
+    strategy: "auto"  # one of: auto, fast_text, layout, vision
+
+  confidence:
+    # Document-level confidence threshold below which FastText escalates to Layout.
+    min_doc_confidence_fast_text: 0.65
+    # Minimum mean characters per page to trust purely text-based extraction.
+    min_mean_chars_per_page: 120
+    # If images dominate the page beyond this ratio, FastText confidence is reduced.
+    max_image_area_ratio_for_fast_text: 0.5
+    # Weighting for FastText page confidence components (chars, density, images, fonts).
+    fast_text_weights:
+      chars: 0.4
+      density: 0.25
+      image: 0.2
+      fonts: 0.15
+
+  budget_guard:
+    # Hard cap for Vision strategy cost estimation (USD) per document.
+    max_usd_per_document: 1.50
+    # Approximate per-1K-token pricing used for early-exit estimate with OpenAI / similar APIs.
+    vision_pricing_per_1k:
+      prompt: 0.00060
+      completion: 0.00120
+    # Approximate average tokens per page for prompt + completion when sending a page image.
+    approx_tokens_per_page:
+      prompt: 1500
+      completion: 500
+
+chunking:
+  # Interim placeholder; enforced in Phase 3.
+  max_tokens: 900
+  rules:
+    - "Table cell is never split from header row."
+    - "Figure caption stored as metadata of parent figure chunk."
+    - "Numbered list kept as single LDU unless exceeds max_tokens."
+    - "Section headers stored as parent metadata on child chunks."
+    - "Cross-references resolved into chunk relationships."
