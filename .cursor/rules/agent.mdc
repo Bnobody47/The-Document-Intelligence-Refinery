@@ -1,0 +1,8 @@
+## Tenx Feedback MCP Setup
+
+- **Purpose**: Configure the `tenxanalysismcp` server so this workspace can send telemetry and receive analytics feedback for the Automaton Auditor project.
+- **Notes for future changes**:
+  - MCP configuration lives in `.cursor/mcp.json`.
+  - The `X-Device` header is currently set to `windows` for this machine.
+  - The coding tool is set to `cursor` as required by Tenx.
+

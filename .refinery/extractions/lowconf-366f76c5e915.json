@@ -1,0 +1,27 @@
+{
+  "doc_id": "lowconf-366f76c5e915",
+  "source_path": "C:\\Users\\BNOBOD~1\\AppData\\Local\\Temp\\tmpgrwga44t\\lowconf.pdf",
+  "strategy_used": "layout",
+  "page_count": 1,
+  "text_blocks": [
+    {
+      "text": "x",
+      "page_number": 1,
+      "bbox": {
+        "x0": 72.0,
+        "top": 63.277000000000044,
+        "x1": 77.5,
+        "bottom": 74.27700000000004
+      }
+    }
+  ],
+  "tables": [],
+  "figures": [],
+  "reading_order": [
+    [
+      1,
+      0
+    ]
+  ],
+  "raw": null
+}

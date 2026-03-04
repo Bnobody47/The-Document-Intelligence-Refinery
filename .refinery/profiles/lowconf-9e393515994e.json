@@ -1,0 +1,21 @@
+{
+  "doc_id": "lowconf-9e393515994e",
+  "source_path": "C:\\Users\\BNOBOD~1\\AppData\\Local\\Temp\\tmp1_85qhtt\\lowconf.pdf",
+  "page_count": 1,
+  "origin_type": "native_digital",
+  "layout_complexity": "single_column",
+  "language": "unknown",
+  "language_confidence": 0.0,
+  "domain_hint": "general",
+  "estimated_extraction_cost": "fast_text_sufficient",
+  "triage_signals": {
+    "page_count": 1,
+    "mean_chars_per_page": 1.0,
+    "mean_char_density": 1.9960478253058943e-6,
+    "mean_image_area_ratio": 0.16981511932773108,
+    "estimated_tables_per_10_pages": 0.0,
+    "multi_column_score": 0.0,
+    "has_form_fields": false
+  },
+  "notes": []
+}

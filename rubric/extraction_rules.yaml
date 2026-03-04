@@ -1,0 +1,38 @@
+ version: "0.1"
+ 
+ triage:
+   origin_detection:
+     # Heuristics over pdfplumber signals.
+     scanned_char_density_max: 0.00008
+     scanned_char_count_max: 50
+     scanned_image_area_ratio_min: 0.55
+ 
+   layout_detection:
+     multi_column_min_separation_pts: 110
+     multi_column_min_modes: 2
+     table_heavy_min_tables_per_10_pages: 4
+ 
+ extraction:
+   router_defaults:
+     # 'auto' chooses based on DocumentProfile + confidence gate.
+     strategy: "auto"  # one of: auto, fast_text, layout, vision
+ 
+   confidence:
+     min_doc_confidence_fast_text: 0.65
+     min_page_confidence_fast_text: 0.55
+     min_mean_chars_per_page: 120
+     max_image_area_ratio_for_fast_text: 0.5
+ 
+   budget_guard:
+     # Hard cap for Vision strategy cost estimation (USD).
+     max_usd_per_document: 1.50
+ 
+ chunking:
+   # Interim placeholder; enforced in Phase 3.
+   max_tokens: 900
+   rules:
+     - "Table cell is never split from header row."
+     - "Figure caption stored as metadata of parent figure chunk."
+     - "Numbered list kept as single LDU unless exceeds max_tokens."
+     - "Section headers stored as parent metadata on child chunks."
+     - "Cross-references resolved into chunk relationships."
