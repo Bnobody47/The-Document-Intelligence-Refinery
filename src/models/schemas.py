@@ -120,6 +120,7 @@ class LDUType(str, Enum):
 
 
 class LDU(BaseModel):
+    ldu_id: str
     content: str
     chunk_type: LDUType
     page_refs: list[PageRef]
@@ -128,6 +129,7 @@ class LDU(BaseModel):
     token_count: int = Field(..., ge=0)
     content_hash: str
     relationships: dict[str, list[str]] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class PageIndexNode(BaseModel):

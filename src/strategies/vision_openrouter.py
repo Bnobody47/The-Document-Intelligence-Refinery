@@ -50,7 +50,26 @@ class VisionOpenRouterExtractor(BaseExtractor):
         cost of adding another page would exceed `max_usd_per_document`, it stops
         adding pages and proceeds with the subset selected so far.
         """
-        s = _settings()
+        try:
+            s = _settings()
+        except Exception as e:
+            extracted = ExtractedDocument(
+                doc_id=profile.doc_id,
+                source_path=profile.source_path,
+                strategy_used="vision",
+                page_count=profile.page_count,
+                text_blocks=[],
+                tables=[],
+                figures=[],
+                reading_order=[],
+                raw={"error": f"vision_unavailable: {type(e).__name__}: {e}"},
+            )
+            return ExtractionResult(
+                extracted=extracted,
+                confidence=0.0,
+                cost_estimate_usd=0.0,
+                notes=["Vision extractor unavailable; set OPENROUTER_API_KEY to enable."],
+            )
         rules = config.rules
         budget_cfg = (rules.get("extraction") or {}).get("budget_guard") or {}
         budget_cap = float(budget_cfg.get("max_usd_per_document", 1.50))

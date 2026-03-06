@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+.pytest_cache/
+.ruff_cache/
+
+.refinery/
+data/demo_corpus/
+
+.DS_Store
+Thumbs.db
