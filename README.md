@@ -51,8 +51,36 @@ py -m refinery.cli audit "The report states revenue was 4.2B in Q3"
 
 ### Environment
 
-- **Strategy C (Vision)**: `OPENROUTER_API_KEY` (and optionally `OPENROUTER_MODEL`).
-- **Optional LLM summaries for PageIndex**: `OPENAI_API_KEY` or `OPENROUTER_API_KEY`; use `py -m refinery.cli index --llm`.
+- **Vision extraction (scanned PDFs)**:
+  - Preferred: `OPENAI_API_KEY` (and optional `OPENAI_VISION_MODEL` / `OPENAI_MODEL`, default `gpt-4o-mini`).
+  - Fallback: `OPENROUTER_API_KEY` (and optionally `OPENROUTER_MODEL`, default `google/gemini-2.0-flash-001`).
+- **LLM summaries for PageIndex (CLI)**: `OPENAI_API_KEY` or `OPENROUTER_API_KEY`; use `py -m refinery.cli index --llm`.
+- **LLM answer rewriting for queries**: if `OPENAI_API_KEY` is set, the query agent sends retrieved context
+  (PageIndex + semantic search + facts) to OpenAI (default `gpt-4o-mini`) to generate a clear natural‑language answer,
+  while provenance (ProvenanceChain) is still computed locally.
+
+### Web UI
+
+There is a small FastAPI demo app with a modern, dark‑themed UI:
+
+```bash
+py main.py
+```
+
+Then open `http://localhost:8000` and:
+
+1. **Triage** — drag & drop a PDF. The app uploads it, runs triage, and shows a compact `DocumentProfile` summary card
+   (doc_id, origin, layout, pages, domain, strategy).
+2. **Run Pipeline** — click **Run Pipeline** to execute extraction, chunking, PageIndex, fact table, and vector store
+   ingestion for the uploaded PDF.
+3. **Ask with LLM Tools** — type a natural language question and click **Ask with LLM Tools**. The backend:
+   - navigates the PageIndex,
+   - runs semantic search over LDUs in Chroma,
+   - optionally queries the facts table,
+   - and (if `OPENAI_API_KEY` is set) calls OpenAI to rewrite the retrieved snippets into a concise answer.
+4. **Provenance** — the UI shows the answer in a styled panel and a separate Provenance panel listing citations
+   (document name, page numbers, and bounding boxes when available), so you can quickly verify the answer
+   against the original PDF.
 
 ### Docker
 
