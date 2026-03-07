@@ -6,6 +6,7 @@ Every answer includes a ProvenanceChain. Audit mode: verify_claim.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from models.schemas import PageIndex, ProvenanceChain, ProvenanceCitation
@@ -93,22 +94,79 @@ def structured_query_tool(
     return json.dumps(rows, indent=2, default=str), chain
 
 
+def _openai_qa(question: str, context: str) -> str | None:
+    """
+    Optional: use OpenAI to turn retrieved context into a clear natural-language answer.
+    Returns None if OPENAI_API_KEY is not set or if the call fails.
+    """
+    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        return None
+    if not context.strip():
+        return None
+    try:
+        import httpx
+
+        model = os.getenv("OPENAI_ANSWER_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o-mini")).strip()
+        system_prompt = (
+            "You answer questions about documents using only the provided context. "
+            "Do not invent facts; if the context is insufficient, say you don't know."
+        )
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": f"Question: {question}\n\nContext:\n{context}\n\nAnswer clearly and concisely.",
+            },
+        ]
+        payload = {"model": model, "messages": messages, "max_tokens": 400}
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        with httpx.Client(timeout=30) as client:
+            r = client.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers)
+            r.raise_for_status()
+            data = r.json()
+        content = (data.get("choices") or [{}])[0].get("message", {}).get("content") or ""
+        answer = content.strip()
+        return answer or None
+    except Exception:
+        return None
+
+
 def run_query(question: str, doc_id: str | None = None) -> tuple[str, ProvenanceChain]:
     """
     Run the query agent: use semantic search by default, optionally navigate PageIndex first.
     Returns (answer_text, ProvenanceChain).
     """
-    # Simple flow: semantic search + optional structured query if question looks factual
+    # Simple flow: semantic search + optional structured query if question looks factual.
+    # If OPENAI_API_KEY is set, we let OpenAI turn the retrieved context into a clear answer.
     query_lower = question.lower()
     if any(k in query_lower for k in ["revenue", "total", "amount", "figure", "number", "table"]):
-        text, chain = structured_query_tool(question, doc_id)
-        if "No matching" not in text:
-            return f"Facts:\n{text}", chain
+        facts_text, chain = structured_query_tool(question, doc_id)
+        if "No matching" not in facts_text:
+            llm_answer = _openai_qa(question, facts_text)
+            if llm_answer:
+                return llm_answer, chain
+            return f"Facts:\n{facts_text}", chain
+
     nav_text, nav_chain = pageindex_navigate(question, doc_id)
     sem_text, sem_chain = semantic_search_tool(question, n_results=5, doc_id=doc_id)
-    combined = f"PageIndex: {nav_text}\n\nContent:\n{sem_text}"
+
+    # Try to get a clean answer from OpenAI using the retrieved context.
+    context_parts: list[str] = []
+    if nav_text and "No matching" not in nav_text:
+        context_parts.append(f"Relevant sections:\n{nav_text}")
+    if sem_text and sem_text != "No results.":
+        context_parts.append(f"Content snippets:\n{sem_text}")
+    llm_answer = _openai_qa(question, "\n\n".join(context_parts))
+
     citations = list(nav_chain.citations) + list(sem_chain.citations)
-    return combined, ProvenanceChain(citations=citations[:15])
+    chain = ProvenanceChain(citations=citations[:15])
+
+    if llm_answer:
+        return llm_answer, chain
+
+    combined = f"PageIndex: {nav_text}\n\nContent:\n{sem_text}"
+    return combined, chain
 
 
 def verify_claim(claim: str, doc_id: str | None = None) -> dict:

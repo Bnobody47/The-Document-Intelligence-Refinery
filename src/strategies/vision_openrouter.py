@@ -13,17 +13,41 @@ from strategies.base import BaseExtractor, ExtractionResult
 
 
 @dataclass(frozen=True)
-class OpenRouterSettings:
+class VisionApiSettings:
+    """
+    Settings for the vision LLM backend.
+
+    If OPENAI_API_KEY is set, prefer OpenAI's vision-capable chat completions.
+    Otherwise fall back to OpenRouter if OPENROUTER_API_KEY is available.
+    """
+
+    provider: str  # "openai" | "openrouter"
     api_key: str
     model: str
+    url: str
 
 
-def _settings() -> OpenRouterSettings:
+def _settings() -> VisionApiSettings:
+    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+    if openai_key:
+        model = os.getenv("OPENAI_VISION_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o-mini")).strip()
+        return VisionApiSettings(
+            provider="openai",
+            api_key=openai_key,
+            model=model,
+            url="https://api.openai.com/v1/chat/completions",
+        )
+
     api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
     model = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001").strip()
     if not api_key:
-        raise ValueError("Missing OPENROUTER_API_KEY for vision extraction.")
-    return OpenRouterSettings(api_key=api_key, model=model)
+        raise ValueError("Missing OPENAI_API_KEY or OPENROUTER_API_KEY for vision extraction.")
+    return VisionApiSettings(
+        provider="openrouter",
+        api_key=api_key,
+        model=model,
+        url="https://openrouter.ai/api/v1/chat/completions",
+    )
 
 
 def _render_page_png_bytes(pdf_path: str, page_index0: int) -> bytes:
@@ -113,7 +137,10 @@ class VisionOpenRouterExtractor(BaseExtractor):
                     "content": [
                         {"type": "text", "text": prompt},
                         *[
-                            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}}
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/png;base64,{b64}"},
+                            }
                             for b64 in images_b64
                         ],
                     ],
@@ -124,7 +151,7 @@ class VisionOpenRouterExtractor(BaseExtractor):
 
         headers = {"Authorization": f"Bearer {s.api_key}", "Content-Type": "application/json"}
         with httpx.Client(timeout=120) as client:
-            r = client.post("https://openrouter.ai/api/v1/chat/completions", json=payload, headers=headers)
+            r = client.post(s.url, json=payload, headers=headers)
             r.raise_for_status()
             data = r.json()
 
@@ -179,7 +206,8 @@ class VisionOpenRouterExtractor(BaseExtractor):
             figures=[],
             reading_order=[(tb.page_number, i) for i, tb in enumerate(text_blocks)],
             raw={
-                "openrouter_model": s.model,
+                "llm_provider": s.provider,
+                "llm_model": s.model,
                 "usage": usage,
                 "approx_pages_processed": pages_to_consider,
                 "approx_cost_usd": est_cost,
