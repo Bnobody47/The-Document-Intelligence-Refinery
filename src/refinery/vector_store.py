@@ -66,28 +66,11 @@ class RefineryHashEmbeddingFunction:
 
 
 def get_or_create_collection(persist_dir: str | Path = CHROMA_PERSIST_DIR):
-    """
-    Create or load the Chroma collection used for LDUs.
-
-    Some chromadb+pydantic versions can raise ConfigError when instantiating Settings
-    (e.g. around attributes like `chroma_server_nofile`). To keep the demo portable
-    across environments, we try to use Settings but gracefully fall back to the
-    default client configuration if that fails.
-    """
     import chromadb
-
+    from chromadb.config import Settings
     path = Path(persist_dir)
     path.mkdir(parents=True, exist_ok=True)
-
-    client = None
-    try:
-        from chromadb.config import Settings
-
-        client = chromadb.PersistentClient(path=str(path), settings=Settings(anonymized_telemetry=False))
-    except Exception:
-        # Fallback: rely on chromadb defaults (still persistent at `path`).
-        client = chromadb.PersistentClient(path=str(path))
-
+    client = chromadb.PersistentClient(path=str(path), settings=Settings(anonymized_telemetry=False))
     return client.get_or_create_collection(
         "refinery_ldus_hash_v1",
         metadata={"description": "Document LDUs"},
